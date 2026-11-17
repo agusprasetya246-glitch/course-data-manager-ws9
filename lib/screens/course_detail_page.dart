@@ -1,192 +1,167 @@
+// NIM: 2415051039 | Nama: Agus Prasetya
 import 'package:flutter/material.dart';
-
-import '../models/course.dart';
-
 import 'package:provider/provider.dart';
 
+import '../models/course.dart';
 import '../providers/course_provider.dart';
-import '../screens/course_form_page.dart';
+import '../utils/app_snackbar.dart';
+import '../utils/error_message.dart';
+import '../widgets/info_tile.dart';
+import 'course_form_page.dart';
 
+/// Detail satu course. Data awal diterima lewat constructor, lalu selalu
+/// memakai versi terbaru dari provider supaya ikut berubah setelah diedit.
 class CourseDetailPage extends StatelessWidget {
-  final Course course;
   const CourseDetailPage({super.key, required this.course});
-  Future<void> _confirmDelete(BuildContext context) async {
-    if (course.id == null) return;
 
+  final Course course;
+
+  Future<void> _confirmDelete(BuildContext context, Course current) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Hapus Course'),
         content: Text(
-          'Apakah Anda yakin ingin menghapus "${course.title}" (${course.code})?',
+          'Apakah Anda yakin ingin menghapus "${current.title}" (${current.code})?',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
+            onPressed: () => Navigator.pop(dialogContext, false),
             child: const Text('Batal'),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(dialogContext, true),
             child: const Text('Hapus'),
           ),
         ],
       ),
     );
-
     if (confirmed != true || !context.mounted) return;
 
+    // Ambil semua yang butuh context SEBELUM await.
+    final provider = context.read<CourseProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
     try {
-      await context.read<CourseProvider>().deleteCourse(
-        course.id!,
-        course.code,
-      );
-
-      if (!context.mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Course ${course.code} berhasil dihapus!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      Navigator.pop(context); // Kembali ke daftar setelah berhasil dihapus
+      await provider.deleteCourse(current);
+      showAppSnackBar(messenger, 'Course ${current.code} berhasil dihapus!');
+      navigator.pop();
     } catch (e) {
-      if (!context.mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Gagal menghapus course: $e'),
-          backgroundColor: Colors.red,
-        ),
+      showAppSnackBar(
+        messenger,
+        'Gagal menghapus course: ${readableError(e)}',
+        isError: true,
       );
     }
   }
 
-  Widget _buildInfoColumn(String label, String value, IconData icon) {
-    return Column(
-      children: [
-        Icon(icon, color: Colors.grey.shade600),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        Text(
-          label,
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-        ),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final courseProvider = context.watch<CourseProvider>();
-    final bool isFavorite = courseProvider.favorites.contains(course.code);
+    final provider = context.watch<CourseProvider>();
+    final current = provider.courseById(course.id) ?? course;
+    final isFavorite = provider.isFavorite(current.code);
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Detail Course'),
-        centerTitle: true,
-        elevation: 0,
         actions: [
           IconButton(
+            tooltip: isFavorite ? 'Hapus dari favorit' : 'Tambah ke favorit',
             icon: Icon(
               isFavorite
                   ? Icons.favorite_rounded
                   : Icons.favorite_outline_rounded,
-              color: isFavorite ? Colors.pink.shade400 : Colors.grey.shade400,
+              color: isFavorite ? Colors.pink.shade400 : null,
             ),
-            onPressed: () {
-              context.read<CourseProvider>().toggleFavorite(course.code);
-            },
+            onPressed: () =>
+                context.read<CourseProvider>().toggleFavorite(current.code),
           ),
           IconButton(
-            icon: const Icon(Icons.edit_outlined, color: Colors.indigo),
-            tooltip: 'Edit Course',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => CourseFormPage(initialCourse: course),
-                ),
-              );
-            },
+            tooltip: 'Edit course',
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => CourseFormPage(initialCourse: current),
+              ),
+            ),
           ),
           IconButton(
+            tooltip: 'Hapus course',
             icon: const Icon(Icons.delete_outline, color: Colors.red),
-            tooltip: 'Hapus Course',
-            onPressed: () => _confirmDelete(context),
+            onPressed: provider.isSaving
+                ? null
+                : () => _confirmDelete(context, current),
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            Container(
-              width: double.infinity,
-              color: Colors.indigo.shade50,
-              padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.menu_book_rounded,
-                    size: 80,
-                    color: Colors.indigo.shade300,
+      body: ListView(
+        children: [
+          Container(
+            color: colorScheme.primaryContainer.withValues(alpha: 0.5),
+            padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.menu_book_rounded,
+                  size: 80,
+                  color: colorScheme.primary.withValues(alpha: 0.6),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  current.title,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.primary,
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    course.title,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.indigo,
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    InfoTile(
+                      icon: Icons.qr_code,
+                      label: 'Kode',
+                      value: current.code,
                     ),
-                  ),
-                ],
-              ),
+                    InfoTile(
+                      icon: Icons.star_border_rounded,
+                      label: 'SKS',
+                      value: '${current.credits}',
+                    ),
+                    InfoTile(
+                      icon: Icons.check_circle_outline,
+                      label: 'Status',
+                      value: current.statusLabel,
+                    ),
+                  ],
+                ),
+                const Divider(height: 48),
+                const Text(
+                  'Tentang Mata Kuliah',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Mata kuliah ${current.title} merupakan bagian dari kurikulum '
+                  'yang wajib diselesaikan.',
+                  style: TextStyle(color: Colors.grey.shade700, height: 1.5),
+                ),
+              ],
             ),
-            Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildInfoColumn('Kode', course.code, Icons.qr_code),
-                      _buildInfoColumn(
-                        'SKS',
-                        '${course.credits}',
-                        Icons.star_border_rounded,
-                      ),
-                      _buildInfoColumn(
-                        'Status',
-                        course.status,
-                        Icons.check_circle_outline,
-                      ),
-                    ],
-                  ),
-                  const Divider(height: 48, thickness: 1),
-                  const Text(
-                    'Tentang Mata Kuliah',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Mata kuliah ${course.title} merupakan bagian dari kurikulum yang wajib diselesaikan.',
-                    style: TextStyle(color: Colors.grey.shade700, height: 1.5),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

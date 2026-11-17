@@ -3,91 +3,96 @@ import 'package:flutter/foundation.dart';
 
 import '../models/course.dart';
 import '../repositories/course_repository.dart';
+import '../utils/error_message.dart';
 
+/// Shared state course dan favorites untuk semua screen.
 class CourseProvider extends ChangeNotifier {
-  CourseProvider(this.repository);
+  CourseProvider(this._repository);
 
-  final CourseRepository repository;
+  final CourseRepository _repository;
 
   List<Course> _courses = [];
-  List<Course> get courses => _courses;
-
   bool _isLoading = false;
+  bool _isSaving = false;
+  String? _error;
+
+  /// Favorites memakai `code` sebagai kunci, jadi tetap konsisten
+  /// walaupun daftar course dimuat ulang dari database.
+  final Set<String> _favoriteCodes = {};
+
+  List<Course> get courses => List.unmodifiable(_courses);
   bool get isLoading => _isLoading;
 
-  // Flag isSaving untuk mencegah submit ganda selama request berjalan
-  bool _isSaving = false;
+  /// true selama create/update/delete berjalan (mencegah submit ganda).
   bool get isSaving => _isSaving;
-
-  String? _error;
   String? get error => _error;
 
-  final Set<String> _favorites = {};
-  Set<String> get favorites => _favorites;
+  int get favoriteCount => _favoriteCodes.length;
 
-  Future<void> loadCourses() async {
-    _isLoading = true;
+  List<Course> get favoriteCourses => _courses
+      .where((course) => _favoriteCodes.contains(course.code))
+      .toList();
+
+  bool isFavorite(String code) => _favoriteCodes.contains(code);
+
+  /// Versi terbaru sebuah course di daftar, atau null kalau sudah tidak ada.
+  Course? courseById(int? id) {
+    if (id == null) return null;
+    for (final course in _courses) {
+      if (course.id == id) return course;
+    }
+    return null;
+  }
+
+  /// READ. [showLoading] = false dipakai setelah simpan dan saat tarik-untuk-
+  /// refresh, supaya daftar lama tetap tampil selama memuat.
+  Future<void> loadCourses({bool showLoading = true}) async {
+    if (showLoading) _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      _courses = await repository.getCourses();
+      _courses = await _repository.getCourses();
     } catch (e) {
-      _error = e.toString();
+      _error = readableError(e);
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  // Buat course melalui repository lalu refresh list dengan loadCourses()
-  Future<void> createCourse(Course course) async {
+  Future<void> createCourse(Course course) =>
+      _save(() => _repository.createCourse(course));
+
+  Future<void> updateCourse(int id, Course course) =>
+      _save(() => _repository.updateCourse(id, course));
+
+  /// DELETE, lalu hapus juga dari favorites.
+  Future<void> deleteCourse(Course course) async {
+    final id = course.id;
+    if (id == null) return;
+
+    await _save(() => _repository.deleteCourse(id));
+    _favoriteCodes.remove(course.code);
+    notifyListeners();
+  }
+
+  void toggleFavorite(String code) {
+    if (!_favoriteCodes.remove(code)) {
+      _favoriteCodes.add(code);
+    }
+    notifyListeners();
+  }
+
+  /// Menjalankan operasi tulis, lalu memuat ulang daftar dari server.
+  /// Exception sengaja diteruskan ke screen supaya pesannya bisa ditampilkan.
+  Future<void> _save(Future<void> Function() action) async {
     _isSaving = true;
     notifyListeners();
 
     try {
-      await repository.createCourse(course);
-      await loadCourses(); // ganti isi list dari server
-    } finally {
-      _isSaving = false;
-      notifyListeners();
-    }
-  }
-
-  void toggleFavorite(String id) {
-    if (_favorites.contains(id)) {
-      _favorites.remove(id);
-    } else {
-      _favorites.add(id);
-    }
-    notifyListeners();
-  }
-
-  // Tahap 7: Update course lalu refresh list dengan loadCourses()
-  Future<void> updateCourse(int id, Course course) async {
-    _isSaving = true;
-    notifyListeners();
-
-    try {
-      await repository.updateCourse(id, course);
-      await loadCourses();
-    } finally {
-      _isSaving = false;
-      notifyListeners();
-    }
-  }
-
-  // Tahap 8: Hapus course, bersihkan dari favorites, lalu refresh list
-  Future<void> deleteCourse(int id, String code) async {
-    _isSaving = true;
-    notifyListeners();
-
-    try {
-      await repository.deleteCourse(id);
-      // Jika course yang dihapus ada di favorites, hapus juga dari favorites
-      _favorites.remove(code);
-      // Refresh list setelah berhasil dihapus
-      await loadCourses();
+      await action();
+      await loadCourses(showLoading: false);
     } finally {
       _isSaving = false;
       notifyListeners();

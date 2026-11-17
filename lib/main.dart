@@ -1,19 +1,15 @@
 // NIM: 2415051039 | Nama: Agus Prasetya
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'config/app_info.dart';
+import 'config/supabase_config.dart';
 import 'providers/course_provider.dart';
 import 'repositories/course_repository.dart';
 import 'screens/main_screen.dart';
-
-import 'package:supabase_flutter/supabase_flutter.dart';
-
-import 'config/supabase_config.dart';
-import 'services/course_supabase_service.dart';
 import 'services/course_data_source.dart';
-
-const String studentName = 'Agus Prasetya';
-const String studentId = '2415051039';
+import 'services/course_supabase_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,6 +19,7 @@ Future<void> main() async {
     publishableKey: SupabaseConfig.supabaseAnonKey,
   );
 
+  // Data source aktif. Untuk REST API: CourseApiService(baseUrl).
   final CourseDataSource dataSource = CourseSupabaseService();
   final repository = CourseRepository(dataSource);
 
@@ -41,8 +38,11 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Course Data Manager',
-      theme: ThemeData(primarySwatch: Colors.blue),
+      title: AppInfo.appName,
+      theme: ThemeData(
+        colorSchemeSeed: Colors.indigo,
+        appBarTheme: const AppBarTheme(centerTitle: true),
+      ),
       home: const MainScreen(),
     );
   }

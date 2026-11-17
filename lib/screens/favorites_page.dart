@@ -1,35 +1,47 @@
+// NIM: 2415051039 | Nama: Agus Prasetya
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/course_provider.dart';
 import '../widgets/course_card.dart';
+import '../widgets/empty_view.dart';
+import 'course_detail_page.dart';
+import 'course_form_page.dart';
 
+/// Tab Favorites: course yang ditandai favorit (shared state dari provider).
 class FavoritesPage extends StatelessWidget {
   const FavoritesPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Memantau state provider
-    final courseProvider = context.watch<CourseProvider>();
-    // Menyaring course yang kodenya ada di dalam set favorites
-    final favoriteCourses = courseProvider.courses
-        .where((course) => courseProvider.favorites.contains(course.code))
-        .toList();
+    final favorites = context.watch<CourseProvider>().favoriteCourses;
 
-    if (favoriteCourses.isEmpty) {
-      const emptyWidget = Center(
-        child: Text(
-          'Belum ada mata kuliah favorit.',
-          style: TextStyle(color: Colors.grey, fontSize: 16),
-        ),
+    if (favorites.isEmpty) {
+      return const EmptyView(
+        icon: Icons.favorite_border_rounded,
+        message: 'Belum ada mata kuliah favorit.',
+        hint: 'Ketuk ikon hati pada kartu course.',
       );
-      return emptyWidget;
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.only(top: 8),
-      itemCount: favoriteCourses.length,
-      itemBuilder: (ctx, i) => CourseCard(course: favoriteCourses[i]),
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: favorites.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final course = favorites[index];
+        return CourseCard(
+          course: course,
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => CourseDetailPage(course: course)),
+          ),
+          onEdit: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => CourseFormPage(initialCourse: course),
+            ),
+          ),
+        );
+      },
     );
   }
 }

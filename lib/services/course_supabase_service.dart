@@ -4,41 +4,37 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/course.dart';
 import 'course_data_source.dart';
 
+/// Sumber data course dari tabel `courses` di Supabase (Pertemuan 7, Tahap 12-15).
 class CourseSupabaseService implements CourseDataSource {
-  final supabase = Supabase.instance.client;
+  CourseSupabaseService({SupabaseClient? client})
+    : _client = client ?? Supabase.instance.client;
+
+  final SupabaseClient _client;
+  static const String _table = 'courses';
 
   @override
   Future<List<Course>> getCourses() async {
-    // Ambil data dari tabel courses dengan query SELECT terurut id
-    final data = await supabase.from('courses').select().order('id');
-
-    // Konversi response menjadi List<Course>
-    return (data as List)
-        .map((e) => Course.fromJson(e as Map<String, dynamic>))
-        .toList();
+    final rows = await _client.from(_table).select().order('id');
+    return rows.map(Course.fromJson).toList();
   }
 
-  // Tahap 13: Ganti stub createCourse pada CourseSupabaseService
   @override
   Future<Course> createCourse(Course course) async {
-    final row = await supabase
-        .from('courses')
+    final row = await _client
+        .from(_table)
         .insert(course.toJson())
         .select()
         .single();
-
     return Course.fromJson(row);
   }
 
-  // Tahap 14: Ganti stub updateCourse pada CourseSupabaseService
   @override
   Future<void> updateCourse(int id, Course course) async {
-    await supabase.from('courses').update(course.toJson()).eq('id', id);
+    await _client.from(_table).update(course.toJson()).eq('id', id);
   }
 
-  // Tahap 15: Ganti stub deleteCourse pada CourseSupabaseService
   @override
   Future<void> deleteCourse(int id) async {
-    await supabase.from('courses').delete().eq('id', id);
+    await _client.from(_table).delete().eq('id', id);
   }
 }
