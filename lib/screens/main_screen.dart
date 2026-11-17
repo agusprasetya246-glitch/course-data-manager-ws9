@@ -1,16 +1,19 @@
 // NIM: 2415051039 | Nama: Agus Prasetya
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../config/app_info.dart';
 import '../config/breakpoints.dart';
+import '../providers/course_provider.dart';
+import '../services/auth_service.dart';
+import '../utils/app_snackbar.dart';
+import '../utils/error_message.dart';
 import 'course_form_page.dart';
 import 'course_list_page.dart';
 import 'favorites_page.dart';
 import 'home_page.dart';
 import 'profile_page.dart';
 
-/// Kerangka navigasi: NavigationBar di layar sempit, NavigationRail di
-/// layar lebar (>= 840 dp). Isi tiap tab ada di file screen masing-masing.
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
@@ -23,23 +26,67 @@ class _MainScreenState extends State<MainScreen> {
 
   static const _destinations = [
     (icon: Icons.home_outlined, selected: Icons.home_rounded, label: 'Home'),
-    (icon: Icons.school_outlined, selected: Icons.school_rounded, label: 'Courses'),
-    (icon: Icons.favorite_outline, selected: Icons.favorite_rounded, label: 'Favorites'),
-    (icon: Icons.person_outline, selected: Icons.person_rounded, label: 'Profile'),
+    (
+      icon: Icons.school_outlined,
+      selected: Icons.school_rounded,
+      label: 'Courses',
+    ),
+    (
+      icon: Icons.favorite_outline,
+      selected: Icons.favorite_rounded,
+      label: 'Favorites',
+    ),
+    (
+      icon: Icons.person_outline,
+      selected: Icons.person_rounded,
+      label: 'Profile',
+    ),
   ];
 
   int _currentIndex = 0;
-
-  // GlobalKey menjaga state tiap tab (misalnya posisi scroll) saat layout
-  // berganti antara NavigationBar dan NavigationRail ketika layar diputar.
   final _pagesKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<CourseProvider>().loadCourses();
+    });
+  }
 
   void _selectTab(int index) => setState(() => _currentIndex = index);
 
   void _openAddForm() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const CourseFormPage()),
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const CourseFormPage()));
+  }
+
+  Future<void> _confirmLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Keluar dari akun ini?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
     );
+    if (confirmed != true || !mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await AuthService.instance.logout();
+    } catch (error) {
+      showAppSnackBar(messenger, readableError(error), isError: true);
+    }
   }
 
   @override
@@ -65,6 +112,13 @@ class _MainScreenState extends State<MainScreen> {
               AppInfo.appName,
               style: TextStyle(fontWeight: FontWeight.w600),
             ),
+            actions: [
+              IconButton(
+                tooltip: 'Logout',
+                icon: const Icon(Icons.logout_rounded),
+                onPressed: _confirmLogout,
+              ),
+            ],
           ),
           floatingActionButton: _currentIndex == _coursesTab
               ? FloatingActionButton.extended(

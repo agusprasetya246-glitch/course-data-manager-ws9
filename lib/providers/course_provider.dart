@@ -5,7 +5,6 @@ import '../models/course.dart';
 import '../repositories/course_repository.dart';
 import '../utils/error_message.dart';
 
-/// Shared state course dan favorites untuk semua screen.
 class CourseProvider extends ChangeNotifier {
   CourseProvider(this._repository);
 
@@ -16,26 +15,21 @@ class CourseProvider extends ChangeNotifier {
   bool _isSaving = false;
   String? _error;
 
-  /// Favorites memakai `code` sebagai kunci, jadi tetap konsisten
-  /// walaupun daftar course dimuat ulang dari database.
   final Set<String> _favoriteCodes = {};
 
   List<Course> get courses => List.unmodifiable(_courses);
   bool get isLoading => _isLoading;
 
-  /// true selama create/update/delete berjalan (mencegah submit ganda).
   bool get isSaving => _isSaving;
   String? get error => _error;
 
   int get favoriteCount => _favoriteCodes.length;
 
-  List<Course> get favoriteCourses => _courses
-      .where((course) => _favoriteCodes.contains(course.code))
-      .toList();
+  List<Course> get favoriteCourses =>
+      _courses.where((course) => _favoriteCodes.contains(course.code)).toList();
 
   bool isFavorite(String code) => _favoriteCodes.contains(code);
 
-  /// Versi terbaru sebuah course di daftar, atau null kalau sudah tidak ada.
   Course? courseById(int? id) {
     if (id == null) return null;
     for (final course in _courses) {
@@ -44,8 +38,6 @@ class CourseProvider extends ChangeNotifier {
     return null;
   }
 
-  /// READ. [showLoading] = false dipakai setelah simpan dan saat tarik-untuk-
-  /// refresh, supaya daftar lama tetap tampil selama memuat.
   Future<void> loadCourses({bool showLoading = true}) async {
     if (showLoading) _isLoading = true;
     _error = null;
@@ -84,8 +76,16 @@ class CourseProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Menjalankan operasi tulis, lalu memuat ulang daftar dari server.
-  /// Exception sengaja diteruskan ke screen supaya pesannya bisa ditampilkan.
+  /// Dipanggil saat logout: mengosongkan data agar akun berikutnya
+  /// tidak melihat course atau favorit milik akun sebelumnya.
+  void clear() {
+    _courses = [];
+    _favoriteCodes.clear();
+    _error = null;
+    _isLoading = false;
+    notifyListeners();
+  }
+
   Future<void> _save(Future<void> Function() action) async {
     _isSaving = true;
     notifyListeners();
