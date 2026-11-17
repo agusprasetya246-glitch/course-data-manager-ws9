@@ -7,7 +7,7 @@ import 'config/app_info.dart';
 import 'config/supabase_config.dart';
 import 'providers/course_provider.dart';
 import 'repositories/course_repository.dart';
-import 'screens/main_screen.dart';
+import 'screens/login_page.dart';
 import 'services/course_data_source.dart';
 import 'services/course_supabase_service.dart';
 
@@ -43,7 +43,7 @@ class MyApp extends StatelessWidget {
         colorSchemeSeed: Colors.indigo,
         appBarTheme: const AppBarTheme(centerTitle: true),
       ),
-      home: const MainScreen(),
+      home: const LoginPage(),
     );
   }
 }

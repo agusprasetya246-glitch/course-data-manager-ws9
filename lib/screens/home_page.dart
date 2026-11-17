@@ -4,10 +4,11 @@ import 'package:provider/provider.dart';
 
 import '../config/app_info.dart';
 import '../providers/course_provider.dart';
+import '../services/auth_service.dart';
 import '../widgets/stat_card.dart';
 import '../widgets/student_avatar.dart';
 
-/// Tab Home: sapaan mahasiswa dan ringkasan jumlah course serta favorit.
+/// Tab Home: sapaan, akun yang sedang login, dan ringkasan course.
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
@@ -20,6 +21,8 @@ class HomePage extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       children: [
         const _GreetingCard(),
+        const SizedBox(height: 16),
+        const _AccountCard(),
         const SizedBox(height: 32),
         Text(
           'Ringkasan Belajar',
@@ -67,7 +70,10 @@ class _GreetingCard extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [colorScheme.primary, colorScheme.primary.withValues(alpha: 0.75)],
+          colors: [
+            colorScheme.primary,
+            colorScheme.primary.withValues(alpha: 0.75),
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -105,7 +111,10 @@ class _GreetingCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: onPrimary.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
@@ -123,6 +132,24 @@ class _GreetingCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Menampilkan akun Supabase Auth yang sedang login.
+class _AccountCard extends StatelessWidget {
+  const _AccountCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final email = AuthService.instance.currentUser?.email ?? '-';
+
+    return Card(
+      child: ListTile(
+        leading: const Icon(Icons.verified_user_outlined),
+        title: const Text('Login sebagai'),
+        subtitle: Text(email),
       ),
     );
   }

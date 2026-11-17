@@ -1,0 +1,31 @@
+// NIM: 2415051039 | Nama: Agus Prasetya
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+/// Satu pintu ke Supabase Auth: register, login, logout, dan info session.
+/// Dipakai lewat AuthService.instance agar hanya ada satu objek.
+class AuthService {
+  AuthService._();
+  static final AuthService instance = AuthService._();
+
+  SupabaseClient get _client => Supabase.instance.client;
+
+  User? get currentUser => _client.auth.currentUser;
+  Session? get currentSession => _client.auth.currentSession;
+  bool get isLoggedIn => currentSession != null;
+
+  Future<AuthResponse> register({
+    required String email,
+    required String password,
+  }) {
+    return _client.auth.signUp(email: email, password: password);
+  }
+
+  Future<AuthResponse> login({
+    required String email,
+    required String password,
+  }) {
+    return _client.auth.signInWithPassword(email: email, password: password);
+  }
+
+  Future<void> logout() => _client.auth.signOut();
+}
