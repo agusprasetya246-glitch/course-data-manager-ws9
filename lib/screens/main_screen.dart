@@ -1,4 +1,5 @@
 // NIM: 2415051039 | Nama: Agus Prasetya
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -15,6 +16,7 @@ import 'course_list_page.dart';
 import 'favorites_page.dart';
 import 'home_page.dart';
 import 'profile_page.dart';
+import 'security_test_page.dart';
 
 /// Kerangka navigasi setelah login: NavigationBar di layar sempit,
 /// NavigationRail di layar lebar (>= 840 dp), dan tombol Logout di AppBar.
@@ -159,6 +161,15 @@ class _MainScreenState extends State<MainScreen> {
               ],
             ),
             actions: [
+              // Hanya untuk pengujian Praktik 6; tidak muncul di build release.
+              if (kDebugMode)
+                IconButton(
+                  tooltip: 'Uji keamanan RLS',
+                  icon: const Icon(Icons.security_rounded),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const SecurityTestPage()),
+                  ),
+                ),
               IconButton(
                 tooltip: 'Logout',
                 icon: const Icon(Icons.logout_rounded),

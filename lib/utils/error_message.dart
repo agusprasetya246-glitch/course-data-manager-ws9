@@ -14,6 +14,10 @@ String readableError(Object error) {
     return _authMessage(error.message);
   }
   if (error is PostgrestException) {
+    // 42501 = insufficient_privilege: ditolak Row Level Security / hak akses.
+    if (error.code == '42501') {
+      return 'Akses ditolak oleh database: Anda tidak punya izin untuk operasi ini.';
+    }
     return 'Database menolak permintaan: ${error.message}';
   }
   return text.startsWith('Exception: ') ? text.substring(11) : text;
