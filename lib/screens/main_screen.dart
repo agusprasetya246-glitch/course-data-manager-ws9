@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../providers/profile_provider.dart';
 import '../config/app_info.dart';
 import '../config/breakpoints.dart';
 import '../providers/course_provider.dart';
@@ -50,7 +51,9 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.read<CourseProvider>().loadCourses();
+      if (!mounted) return;
+      context.read<ProfileProvider>().loadProfile();
+      context.read<CourseProvider>().loadCourses();
     });
   }
 

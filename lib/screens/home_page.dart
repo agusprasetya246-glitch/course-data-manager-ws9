@@ -3,32 +3,46 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../config/app_info.dart';
+import '../models/user_profile.dart';
 import '../providers/course_provider.dart';
-import '../services/auth_service.dart';
+import '../providers/profile_provider.dart';
 import '../widgets/stat_card.dart';
-import '../widgets/student_avatar.dart';
 
-/// Tab Home: sapaan, akun yang sedang login, dan ringkasan course.
+/// Tab Home: sapaan, data akun (nama, email, role), dan ringkasan course.
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<CourseProvider>();
-    final colorScheme = Theme.of(context).colorScheme;
+    final courseProvider = context.watch<CourseProvider>();
+    final profileProvider = context.watch<ProfileProvider>();
+    final profile = profileProvider.profile;
+    final error = profileProvider.error;
+    final theme = Theme.of(context);
 
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
-        const _GreetingCard(),
-        const SizedBox(height: 16),
-        const _AccountCard(),
+        if (profile != null) ...[
+          _GreetingCard(profile: profile),
+          const SizedBox(height: 16),
+          _AccountCard(profile: profile),
+        ] else if (error != null)
+          _ProfileErrorCard(
+            message: error,
+            onRetry: () => context.read<ProfileProvider>().loadProfile(),
+          )
+        else
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 48),
+            child: Center(child: CircularProgressIndicator()),
+          ),
         const SizedBox(height: 32),
         Text(
           'Ringkasan Belajar',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+          style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.bold,
-            color: colorScheme.primary,
+            color: theme.colorScheme.primary,
           ),
         ),
         const SizedBox(height: 16),
@@ -38,7 +52,7 @@ class HomePage extends StatelessWidget {
               child: StatCard(
                 icon: Icons.library_books_rounded,
                 color: Colors.orange.shade400,
-                value: '${provider.courses.length}',
+                value: '${courseProvider.courses.length}',
                 label: 'Total Course',
               ),
             ),
@@ -47,24 +61,34 @@ class HomePage extends StatelessWidget {
               child: StatCard(
                 icon: Icons.favorite_rounded,
                 color: Colors.pink.shade400,
-                value: '${provider.favoriteCount}',
+                value: '${courseProvider.favoriteCount}',
                 label: 'Total Favorit',
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 32),
+        Text(
+          '${AppInfo.studentId} · ${AppInfo.studentName}',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodySmall,
         ),
       ],
     );
   }
 }
 
+/// Sapaan dengan nama dan role pengguna yang sedang login.
 class _GreetingCard extends StatelessWidget {
-  const _GreetingCard();
+  const _GreetingCard({required this.profile});
+
+  final UserProfile profile;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final onPrimary = colorScheme.onPrimary;
+    final name = profile.displayName;
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -88,7 +112,18 @@ class _GreetingCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const StudentAvatar(),
+          CircleAvatar(
+            radius: 32,
+            backgroundColor: onPrimary.withValues(alpha: 0.2),
+            child: Text(
+              name.isEmpty ? '?' : name[0].toUpperCase(),
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
+                color: onPrimary,
+              ),
+            ),
+          ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -102,7 +137,9 @@ class _GreetingCard extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  AppInfo.studentName,
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -120,7 +157,7 @@ class _GreetingCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    AppInfo.studentId,
+                    profile.roleLabel,
                     style: TextStyle(
                       fontSize: 12,
                       color: onPrimary,
@@ -137,19 +174,63 @@ class _GreetingCard extends StatelessWidget {
   }
 }
 
-/// Menampilkan akun Supabase Auth yang sedang login.
+/// Informasi akun dari tabel profiles: Nama, Email, dan Role.
 class _AccountCard extends StatelessWidget {
-  const _AccountCard();
+  const _AccountCard({required this.profile});
+
+  final UserProfile profile;
 
   @override
   Widget build(BuildContext context) {
-    final email = AuthService.instance.currentUser?.email ?? '-';
-
     return Card(
-      child: ListTile(
-        leading: const Icon(Icons.verified_user_outlined),
-        title: const Text('Login sebagai'),
-        subtitle: Text(email),
+      child: Column(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.person_outline),
+            title: const Text('Nama'),
+            subtitle: Text(profile.name.trim().isEmpty ? '-' : profile.name),
+          ),
+          ListTile(
+            leading: const Icon(Icons.email_outlined),
+            title: const Text('Email'),
+            subtitle: Text(profile.email),
+          ),
+          ListTile(
+            leading: const Icon(Icons.badge_outlined),
+            title: const Text('Role'),
+            subtitle: Text('${profile.roleLabel} (${profile.role})'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Ditampilkan kalau profile gagal dimuat, dengan tombol coba lagi.
+class _ProfileErrorCard extends StatelessWidget {
+  const _ProfileErrorCard({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red, size: 40),
+            const SizedBox(height: 8),
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Coba lagi'),
+            ),
+          ],
+        ),
       ),
     );
   }

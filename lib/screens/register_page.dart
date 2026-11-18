@@ -2,13 +2,13 @@
 import 'package:flutter/material.dart';
 
 import '../config/app_info.dart';
+import '../models/user_profile.dart';
 import '../services/auth_service.dart';
 import '../utils/app_snackbar.dart';
 import '../utils/auth_validators.dart';
 import '../utils/error_message.dart';
 import 'main_screen.dart';
 
-/// Halaman pendaftaran akun baru melalui Supabase Auth.
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
 
@@ -18,15 +18,18 @@ class RegisterPage extends StatefulWidget {
 
 class _RegisterPageState extends State<RegisterPage> {
   final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
 
+  String _role = 'seeker';
   bool _isLoading = false;
   bool _obscurePassword = true;
 
   @override
   void dispose() {
+    _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
@@ -36,7 +39,6 @@ class _RegisterPageState extends State<RegisterPage> {
   Future<void> _register() async {
     if (_isLoading || !_formKey.currentState!.validate()) return;
 
-    // Diambil sebelum await agar context tidak dipakai setelah jeda async.
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
     setState(() => _isLoading = true);
@@ -45,17 +47,20 @@ class _RegisterPageState extends State<RegisterPage> {
       final response = await AuthService.instance.register(
         email: _emailController.text.trim(),
         password: _passwordController.text,
+        name: _nameController.text.trim(),
+        role: _role,
       );
 
       if (response.session != null) {
-        // Confirm email nonaktif: akun langsung login dan masuk aplikasi.
-        showAppSnackBar(messenger, 'Akun berhasil dibuat');
+        showAppSnackBar(
+          messenger,
+          'Akun ${UserProfile.labelOf(_role)} berhasil dibuat',
+        );
         navigator.pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const MainScreen()),
           (route) => false,
         );
       } else {
-        // Confirm email aktif: akun bisa dipakai setelah link di email dibuka.
         showAppSnackBar(
           messenger,
           'Registrasi berhasil. Buka email Anda untuk konfirmasi akun.',
@@ -101,6 +106,21 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                   const SizedBox(height: 32),
                   TextFormField(
+                    controller: _nameController,
+                    textCapitalization: TextCapitalization.words,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                      labelText: 'Nama',
+                      prefixIcon: Icon(Icons.person_outline),
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) =>
+                        (value == null || value.trim().isEmpty)
+                        ? 'Nama wajib diisi'
+                        : null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.next,
@@ -110,6 +130,25 @@ class _RegisterPageState extends State<RegisterPage> {
                       border: OutlineInputBorder(),
                     ),
                     validator: validateEmail,
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    initialValue: _role,
+                    decoration: const InputDecoration(
+                      labelText: 'Daftar sebagai',
+                      prefixIcon: Icon(Icons.badge_outlined),
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      for (final role in UserProfile.signUpRoles)
+                        DropdownMenuItem(
+                          value: role,
+                          child: Text(UserProfile.labelOf(role)),
+                        ),
+                    ],
+                    onChanged: _isLoading
+                        ? null
+                        : (value) => setState(() => _role = value ?? 'seeker'),
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
