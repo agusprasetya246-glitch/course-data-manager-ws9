@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/course_provider.dart';
+import '../providers/profile_provider.dart';
 import '../widgets/course_card.dart';
 import '../widgets/empty_view.dart';
 import 'course_detail_page.dart';
@@ -15,6 +16,7 @@ class FavoritesPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final favorites = context.watch<CourseProvider>().favoriteCourses;
+    final access = context.watch<ProfileProvider>();
 
     if (favorites.isEmpty) {
       return const EmptyView(
@@ -35,11 +37,14 @@ class FavoritesPage extends StatelessWidget {
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => CourseDetailPage(course: course)),
           ),
-          onEdit: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => CourseFormPage(initialCourse: course),
-            ),
-          ),
+          // Mahasiswa tetap bisa memfavoritkan, tapi tidak bisa mengedit.
+          onEdit: access.canModify(course)
+              ? () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => CourseFormPage(initialCourse: course),
+                  ),
+                )
+              : null,
         );
       },
     );

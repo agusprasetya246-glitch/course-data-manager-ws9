@@ -1,6 +1,5 @@
 // NIM: 2415051039 | Nama: Agus Prasetya
 
-/// Satu baris tabel `courses` di Supabase.
 class Course {
   const Course({
     this.id,
@@ -8,9 +7,9 @@ class Course {
     required this.title,
     required this.credits,
     this.status = 'planned',
+    this.ownerId,
   });
 
-  /// Nilai status yang diizinkan, sama dengan CHECK constraint di database.
   static const List<String> statuses = ['planned', 'active', 'done'];
 
   final int? id;
@@ -18,6 +17,8 @@ class Course {
   final String title;
   final int credits;
   final String status;
+
+  final String? ownerId;
 
   /// Label status untuk ditampilkan di UI.
   static String labelOf(String status) {
@@ -37,10 +38,10 @@ class Course {
       title: json['title'] as String,
       credits: (json['credits'] as num).toInt(),
       status: (json['status'] as String?) ?? 'planned',
+      ownerId: json['owner_id'] as String?,
     );
   }
 
-  /// Kolom yang dikirim saat insert/update. `id` dan `created_at` dibuat database.
   Map<String, dynamic> toJson() => {
     'code': code,
     'title': title,

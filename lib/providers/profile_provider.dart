@@ -1,6 +1,7 @@
 // NIM: 2415051039 | Nama: Agus Prasetya
 import 'package:flutter/foundation.dart';
 
+import '../models/course.dart';
 import '../models/user_profile.dart';
 import '../services/profile_service.dart';
 import '../utils/error_message.dart';
@@ -19,6 +20,18 @@ class ProfileProvider extends ChangeNotifier {
   String? get error => _error;
 
   String get role => _profile?.role ?? 'seeker';
+
+  bool get canAddCourse {
+    final profile = _profile;
+    return profile != null && (profile.isOwner || profile.isAdmin);
+  }
+
+  bool canModify(Course course) {
+    final profile = _profile;
+    if (profile == null) return false;
+    if (profile.isAdmin) return true;
+    return profile.isOwner && course.ownerId == profile.id;
+  }
 
   Future<void> loadProfile() async {
     _isLoading = true;

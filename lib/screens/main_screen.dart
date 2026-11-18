@@ -2,19 +2,23 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../providers/profile_provider.dart';
 import '../config/app_info.dart';
 import '../config/breakpoints.dart';
 import '../providers/course_provider.dart';
+import '../providers/profile_provider.dart';
 import '../services/auth_service.dart';
 import '../utils/app_snackbar.dart';
 import '../utils/error_message.dart';
+import '../widgets/role_guard.dart';
 import 'course_form_page.dart';
 import 'course_list_page.dart';
 import 'favorites_page.dart';
 import 'home_page.dart';
 import 'profile_page.dart';
 
+/// Kerangka navigasi setelah login: NavigationBar di layar sempit,
+/// NavigationRail di layar lebar (>= 840 dp), dan tombol Logout di AppBar.
+/// Tab My Courses dan tombol Tambah Course hanya untuk Pengajar dan Admin.
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
@@ -24,8 +28,9 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   static const int _coursesTab = 1;
+  static const int _myCoursesTab = 4;
 
-  static const _destinations = [
+  static const _baseDestinations = [
     (icon: Icons.home_outlined, selected: Icons.home_rounded, label: 'Home'),
     (
       icon: Icons.school_outlined,
@@ -44,12 +49,26 @@ class _MainScreenState extends State<MainScreen> {
     ),
   ];
 
+  // Ditaruh paling akhir supaya urutan tab lain tidak bergeser
+  // ketika tab ini muncul setelah profile selesai dimuat.
+  static const _myCoursesDestination = (
+    icon: Icons.folder_shared_outlined,
+    selected: Icons.folder_shared,
+    label: 'My Courses',
+  );
+
   int _currentIndex = 0;
+
+  // GlobalKey menjaga state tiap tab (misalnya posisi scroll) saat layout
+  // berganti antara NavigationBar dan NavigationRail ketika layar diputar.
   final _pagesKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
+    // MainScreen baru tampil setelah login, jadi profile dan data course
+    // diambil dengan session pengguna yang sedang aktif. Dijalankan setelah
+    // frame pertama karena keduanya memanggil notifyListeners.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<ProfileProvider>().loadProfile();
@@ -86,6 +105,7 @@ class _MainScreenState extends State<MainScreen> {
 
     final messenger = ScaffoldMessenger.of(context);
     try {
+      // Pindah ke LoginPage ditangani listener onAuthStateChange di main.dart.
       await AuthService.instance.logout();
     } catch (error) {
       showAppSnackBar(messenger, readableError(error), isError: true);
@@ -94,14 +114,27 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final access = context.watch<ProfileProvider>();
+    final canManage = access.canAddCourse;
+    final roleLabel = access.profile?.roleLabel;
+
+    final destinations = [
+      ..._baseDestinations,
+      if (canManage) _myCoursesDestination,
+    ];
+    // Jaga-jaga kalau tab My Courses hilang (misalnya role berubah).
+    final index = _currentIndex < destinations.length ? _currentIndex : 0;
+    final showAddButton = index == _coursesTab || index == _myCoursesTab;
+
     final pages = IndexedStack(
       key: _pagesKey,
-      index: _currentIndex,
-      children: const [
-        HomePage(),
-        CourseListPage(),
-        FavoritesPage(),
-        ProfilePage(),
+      index: index,
+      children: [
+        const HomePage(),
+        const CourseListPage(),
+        const FavoritesPage(),
+        const ProfilePage(),
+        if (canManage) const CourseListPage(onlyMine: true),
       ],
     );
 
@@ -111,9 +144,19 @@ class _MainScreenState extends State<MainScreen> {
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text(
-              AppInfo.appName,
-              style: TextStyle(fontWeight: FontWeight.w600),
+            title: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  AppInfo.appName,
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                if (roleLabel != null)
+                  Text(
+                    'Masuk sebagai $roleLabel',
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
+              ],
             ),
             actions: [
               IconButton(
@@ -123,22 +166,26 @@ class _MainScreenState extends State<MainScreen> {
               ),
             ],
           ),
-          floatingActionButton: _currentIndex == _coursesTab
-              ? FloatingActionButton.extended(
-                  onPressed: _openAddForm,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Tambah Course'),
+          // Tombol Tambah hanya untuk Pengajar dan Admin.
+          floatingActionButton: showAddButton
+              ? RoleGuard(
+                  allowed: const ['owner', 'admin'],
+                  child: FloatingActionButton.extended(
+                    onPressed: _openAddForm,
+                    icon: const Icon(Icons.add),
+                    label: const Text('Tambah Course'),
+                  ),
                 )
               : null,
           body: isWide
               ? Row(
                   children: [
                     NavigationRail(
-                      selectedIndex: _currentIndex,
+                      selectedIndex: index,
                       onDestinationSelected: _selectTab,
                       labelType: NavigationRailLabelType.all,
                       destinations: [
-                        for (final d in _destinations)
+                        for (final d in destinations)
                           NavigationRailDestination(
                             icon: Icon(d.icon),
                             selectedIcon: Icon(d.selected),
@@ -154,10 +201,10 @@ class _MainScreenState extends State<MainScreen> {
           bottomNavigationBar: isWide
               ? null
               : NavigationBar(
-                  selectedIndex: _currentIndex,
+                  selectedIndex: index,
                   onDestinationSelected: _selectTab,
                   destinations: [
-                    for (final d in _destinations)
+                    for (final d in destinations)
                       NavigationDestination(
                         icon: Icon(d.icon),
                         selectedIcon: Icon(d.selected),

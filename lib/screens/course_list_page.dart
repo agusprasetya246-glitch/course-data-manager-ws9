@@ -5,20 +5,25 @@ import 'package:provider/provider.dart';
 import '../config/breakpoints.dart';
 import '../models/course.dart';
 import '../providers/course_provider.dart';
+import '../providers/profile_provider.dart';
 import '../widgets/course_card.dart';
 import '../widgets/empty_view.dart';
 import '../widgets/error_view.dart';
 import 'course_detail_page.dart';
 import 'course_form_page.dart';
 
-/// Tab Courses: daftar course dari database dengan loading, error,
-/// empty state, dan tarik-untuk-refresh.
+/// Daftar course dari database dengan loading, error, empty state, dan
+/// tarik-untuk-refresh. Dipakai tab Courses (semua course) dan tab
+/// My Courses ([onlyMine] = true, hanya course milik pengguna).
 class CourseListPage extends StatelessWidget {
-  const CourseListPage({super.key});
+  const CourseListPage({super.key, this.onlyMine = false});
+
+  final bool onlyMine;
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<CourseProvider>();
+    final access = context.watch<ProfileProvider>();
 
     if (provider.isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -32,12 +37,20 @@ class CourseListPage extends StatelessWidget {
       );
     }
 
-    final courses = provider.courses;
+    final myId = access.profile?.id;
+    final courses = onlyMine
+        ? provider.courses.where((course) => course.ownerId == myId).toList()
+        : provider.courses;
+
     if (courses.isEmpty) {
-      return const EmptyView(
-        icon: Icons.school_outlined,
-        message: 'Data course belum tersedia',
-        hint: 'Ketuk Tambah Course untuk menambahkan data.',
+      return EmptyView(
+        icon: onlyMine ? Icons.folder_shared_outlined : Icons.school_outlined,
+        message: onlyMine
+            ? 'Anda belum memiliki course'
+            : 'Data course belum tersedia',
+        hint: access.canAddCourse
+            ? 'Ketuk Tambah Course untuk menambahkan data.'
+            : 'Course akan tampil setelah ditambahkan oleh Pengajar.',
       );
     }
 
@@ -68,7 +81,7 @@ class CourseListPage extends StatelessWidget {
                       if (i > 0) const SizedBox(width: 12),
                       Expanded(
                         child: start + i < courses.length
-                            ? _buildCard(context, courses[start + i])
+                            ? _buildCard(context, courses[start + i], access)
                             : const SizedBox.shrink(),
                       ),
                     ],
@@ -82,17 +95,24 @@ class CourseListPage extends StatelessWidget {
     );
   }
 
-  Widget _buildCard(BuildContext context, Course course) {
+  Widget _buildCard(
+    BuildContext context,
+    Course course,
+    ProfileProvider access,
+  ) {
     return CourseCard(
       course: course,
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => CourseDetailPage(course: course)),
       ),
-      onEdit: () => Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => CourseFormPage(initialCourse: course),
-        ),
-      ),
+      // null = ikon edit tidak ditampilkan (Mahasiswa, atau bukan pemilik).
+      onEdit: access.canModify(course)
+          ? () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => CourseFormPage(initialCourse: course),
+              ),
+            )
+          : null,
     );
   }
 }

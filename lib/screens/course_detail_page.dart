@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../providers/profile_provider.dart';
 import '../models/course.dart';
 import '../providers/course_provider.dart';
 import '../utils/app_snackbar.dart';
@@ -62,6 +63,7 @@ class CourseDetailPage extends StatelessWidget {
     final provider = context.watch<CourseProvider>();
     final current = provider.courseById(course.id) ?? course;
     final isFavorite = provider.isFavorite(current.code);
+    final canModify = context.watch<ProfileProvider>().canModify(current);
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -79,22 +81,25 @@ class CourseDetailPage extends StatelessWidget {
             onPressed: () =>
                 context.read<CourseProvider>().toggleFavorite(current.code),
           ),
-          IconButton(
-            tooltip: 'Edit course',
-            icon: const Icon(Icons.edit_outlined),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => CourseFormPage(initialCourse: current),
+          // Edit dan Hapus hanya untuk pemilik course atau Admin.
+          if (canModify) ...[
+            IconButton(
+              tooltip: 'Edit course',
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => CourseFormPage(initialCourse: current),
+                ),
               ),
             ),
-          ),
-          IconButton(
-            tooltip: 'Hapus course',
-            icon: const Icon(Icons.delete_outline, color: Colors.red),
-            onPressed: provider.isSaving
-                ? null
-                : () => _confirmDelete(context, current),
-          ),
+            IconButton(
+              tooltip: 'Hapus course',
+              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              onPressed: provider.isSaving
+                  ? null
+                  : () => _confirmDelete(context, current),
+            ),
+          ],
         ],
       ),
       body: ListView(
