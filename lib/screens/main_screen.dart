@@ -17,10 +17,8 @@ import 'favorites_page.dart';
 import 'home_page.dart';
 import 'profile_page.dart';
 import 'security_test_page.dart';
+import '../services/notification_service.dart';
 
-/// Kerangka navigasi setelah login: NavigationBar di layar sempit,
-/// NavigationRail di layar lebar (>= 840 dp), dan tombol Logout di AppBar.
-/// Tab My Courses dan tombol Tambah Course hanya untuk Pengajar dan Admin.
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
@@ -51,8 +49,6 @@ class _MainScreenState extends State<MainScreen> {
     ),
   ];
 
-  // Ditaruh paling akhir supaya urutan tab lain tidak bergeser
-  // ketika tab ini muncul setelah profile selesai dimuat.
   static const _myCoursesDestination = (
     icon: Icons.folder_shared_outlined,
     selected: Icons.folder_shared,
@@ -61,22 +57,20 @@ class _MainScreenState extends State<MainScreen> {
 
   int _currentIndex = 0;
 
-  // GlobalKey menjaga state tiap tab (misalnya posisi scroll) saat layout
-  // berganti antara NavigationBar dan NavigationRail ketika layar diputar.
   final _pagesKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
-    // MainScreen baru tampil setelah login, jadi profile dan data course
-    // diambil dengan session pengguna yang sedang aktif. Dijalankan setelah
-    // frame pertama karena keduanya memanggil notifyListeners.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<ProfileProvider>().loadProfile();
       context.read<CourseProvider>().loadCourses();
+      _setupNotifications();
     });
   }
+
+  Future<void> _setupNotifications() => NotificationService.instance.init();
 
   void _selectTab(int index) => setState(() => _currentIndex = index);
 
@@ -107,7 +101,7 @@ class _MainScreenState extends State<MainScreen> {
 
     final messenger = ScaffoldMessenger.of(context);
     try {
-      // Pindah ke LoginPage ditangani listener onAuthStateChange di main.dart.
+      await NotificationService.instance.unregisterDevice();
       await AuthService.instance.logout();
     } catch (error) {
       showAppSnackBar(messenger, readableError(error), isError: true);

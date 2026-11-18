@@ -1,4 +1,5 @@
 // NIM: 2415051039 | Nama: Agus Prasetya
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,6 +8,8 @@ import '../models/user_profile.dart';
 import '../providers/course_provider.dart';
 import '../providers/profile_provider.dart';
 import '../widgets/stat_card.dart';
+import '../services/notification_service.dart';
+import '../utils/app_snackbar.dart';
 
 /// Tab Home: sapaan, data akun (nama, email, role), dan ringkasan course.
 class HomePage extends StatelessWidget {
@@ -37,6 +40,9 @@ class HomePage extends StatelessWidget {
             padding: EdgeInsets.symmetric(vertical: 48),
             child: Center(child: CircularProgressIndicator()),
           ),
+
+        const SizedBox(height: 16),
+        const _NotificationCard(),
         const SizedBox(height: 32),
         Text(
           'Ringkasan Belajar',
@@ -231,6 +237,75 @@ class _ProfileErrorCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Status izin notifikasi (Tahap 8) dan FCM token perangkat (Tahap 9).
+class _NotificationCard extends StatelessWidget {
+  const _NotificationCard();
+
+  Future<void> _copyToken(BuildContext context, String token) async {
+    final messenger = ScaffoldMessenger.of(context);
+    await Clipboard.setData(ClipboardData(text: token));
+    showAppSnackBar(messenger, 'FCM token disalin ke clipboard');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final service = NotificationService.instance;
+
+    return Card(
+      child: Column(
+        children: [
+          ValueListenableBuilder(
+            valueListenable: service.permissionStatus,
+            builder: (context, status, _) {
+              final allowed = NotificationService.isAllowed(status);
+              return ListTile(
+                leading: Icon(
+                  allowed
+                      ? Icons.notifications_active_outlined
+                      : Icons.notifications_off_outlined,
+                  color: status == null
+                      ? null
+                      : (allowed ? Colors.green : Colors.red),
+                ),
+                title: const Text('Izin notifikasi'),
+                subtitle: Text(NotificationService.labelOf(status)),
+                trailing: IconButton(
+                  tooltip: 'Periksa ulang',
+                  icon: const Icon(Icons.refresh),
+                  onPressed: service.requestPermission,
+                ),
+              );
+            },
+          ),
+          const Divider(height: 1),
+          ValueListenableBuilder(
+            valueListenable: service.currentToken,
+            builder: (context, token, _) {
+              return ListTile(
+                leading: const Icon(Icons.key_outlined),
+                title: const Text('FCM token'),
+                // Disensor sebagian; token lengkap ada di Debug Console.
+                subtitle: Text(
+                  token == null
+                      ? 'Belum tersedia'
+                      : NotificationService.mask(token),
+                ),
+                trailing: token == null
+                    ? null
+                    : IconButton(
+                        tooltip: 'Salin token',
+                        icon: const Icon(Icons.copy_rounded),
+                        onPressed: () => _copyToken(context, token),
+                      ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }

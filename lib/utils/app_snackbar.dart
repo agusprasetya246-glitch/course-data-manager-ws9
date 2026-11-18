@@ -18,3 +18,39 @@ void showAppSnackBar(
       ),
     );
 }
+
+/// SnackBar untuk push notification yang datang saat aplikasi sedang dibuka
+/// (foreground), karena pada kondisi ini Android tidak menampilkannya.
+void showNotificationSnackBar(
+  ScaffoldMessengerState messenger, {
+  required String title,
+  required String body,
+}) {
+  messenger
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 6),
+        content: Row(
+          children: [
+            const Icon(Icons.notifications_active, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  if (body.isNotEmpty) Text(body),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+}
